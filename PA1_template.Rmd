@@ -1,20 +1,141 @@
-# Reproducible Research: Peer Assessment 1
+Reproducible Reaserch class - project 1
+========================================================
 
+##  Loading and preprocessing the data
 
-## Loading and preprocessing the data
+Intiatilize, read in the data and calculate sums, means and medians:
 
+```{r, echo = TRUE}
+library(lattice)
+library(xtable)
 
+act_dat<- read.csv("activity.csv")
+
+sums <- aggregate(steps ~ date, act_dat, sum)
+means <- aggregate(steps ~ date, act_dat, mean)
+medians <- aggregate(steps ~ date, act_dat, median)
+
+```
 
 ## What is mean total number of steps taken per day?
 
+Histogram for the total number of steps:
 
+```{r initial histogram, fig.width=7, fig.height=6}
+barplot(sums$steps, names.arg = sums$date)
+```
+
+Mean and median values:
+```{r, echo = TRUE}
+combined <-merge(means, medians, by = "date")
+names(combined) <- c("Date", "Mean", "Median")
+combined$Mean <- format(combined$Mean, digits=1)
+
+```
+
+Format the table for display
+```{r, results="asis"}
+combined_table <- xtable(combined)
+print(combined_table, type ="html")
+```
 
 ## What is the average daily activity pattern?
 
+Grouping the data by intervals so we can plot daily activity patterns
 
+```{r, echo = TRUE}
+step_times <- aggregate(steps ~ interval, act_dat, mean)
+```
+
+Then generate the plot
+
+```{r steps plot, fig.width=7, fig.height=6}
+plot(step_times$interval, step_times$steps, type = "l")
+```
+
+Find index for interval with the maximum steps, and display the interval index number
+
+```{r, echo = TRUE}
+max_interval = step_times[which.max(step_times$step),]$interval
+max_interval
+```
 
 ## Imputing missing values
 
+Find number of missing values (NA's)
+```{r, echo = TRUE}
+number_of_missing <- sum(is.na(act_dat$steps))
+number_of_missing
+```
 
+To fill in the missing values, let's use average for that interval.
+Loop through the data frame and replace NA's and get the right value from step_times.
+
+```{r, echo = TRUE}
+for (row in 1:length(act_dat$steps) ) { 
+  if ( is.na(act_dat$steps[row]) ) {
+    act_dat$steps[row] <- step_times[step_times$interval == act_dat$interval[row],]$steps
+  }
+}
+```
+
+Now we can take sums, means and medians for the values
+```{r, echo = TRUE}
+sums2 <- aggregate(steps ~ date, act_dat, sum)
+means2 <- aggregate(steps ~ date, act_dat, mean)
+medians2 <- aggregate(steps ~ date, act_dat, median)
+
+```
+
+Histogram for the total number of steps with the new "filled in" data:
+
+```{r filled in histogram, fig.width=7, fig.height=6}
+barplot(sums2$steps, names.arg = sums2$date)
+```
+
+Combined data so we can see numerical values:
+
+```{r, echo = TRUE}
+combined2 <- merge(means2, medians2, by = "date")
+names(combined2) <- c("Date", "Mean", "Median")
+combined2$Mean <- format(combined2$Mean, digits = 1)
+```
+
+Format the table for display
+```{r, results="asis"}
+combined_table <- xtable(combined2)
+print(combined_table, type ="html")
+```
+
+
+As we can see, the values have changed in some places. Now, there are also values for each day, some were missing from the original dataset but got filled in when we imputed values.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+Getting the weekday and creating a weekend flag to indicate whether a certain day is on the weekend or not.
+
+
+```{r, echo = TRUE}
+act_dat$weekday <- weekdays(as.Date(sums2$date))
+act_dat$weekend <- 0
+act_dat[act_dat$weekday == "Sunday" | act_dat$weekday == "Saturday", ]$weekend <- 1
+```
+
+Grouping data by interval for the final graph and creating the factor variable for weekday/weekend.
+
+```{r, echo = TRUE}
+step_times2 <- aggregate(steps ~ interval + weekend, act_dat, mean)
+step_times2$weekend <- factor(step_times2$weekend, labels=c("weekday", "weekend"))
+```
+
+Using lattice package to create the graph.
+
+```{r final lattice plot, fig.width=9, fig.height=7}
+xyplot(step_times2$steps ~ step_times2$interval | step_times2$weekend,
+       type = "l",
+       xlab = "Interval",
+       ylab = "Number of steps",
+       layout = c(1, 2)
+       )
+```
+
